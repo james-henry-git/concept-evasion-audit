@@ -74,45 +74,61 @@ class EvasionTrainer:
         logit = h @ self.probe_weight.T + self.probe_bias  # (B, 1)
         return torch.sigmoid(logit).squeeze(-1)       # (B,)
 
-    def train_step(self, concept: str, positive_passages: list[str]) -> dict:
+    def train_step(
+        self,
+        concept: str,
+        positive_passages: list[str],
+        batch_size: int = 8,
+    ) -> dict:
         self.model.train()
         triggered = format_triggered(concept, positive_passages)
-        enc = self.tokenizer(
-            triggered,
-            return_tensors="pt",
-            padding=True,
-            truncation=True,
-            max_length=self.max_length,
-        ).to(self.device)
-
-        # Forward with LoRA adapters — get logits + hidden states
-        out = self.model(**enc, output_hidden_states=True)
-
-        # KL reference: frozen base model (disable LoRA adapters temporarily)
-        with torch.no_grad():
-            self.model.disable_adapter_layers()
-            ref_out = self.model(**enc)
-            self.model.enable_adapter_layers()
-
-        kl_loss = F.kl_div(
-            F.log_softmax(out.logits, dim=-1),
-            F.softmax(ref_out.logits.detach(), dim=-1),
-            reduction="batchmean",
-        )
-
-        # Obfuscation: minimize P(positive) at probe layer
-        h_probe = out.hidden_states[self.probe_layer]   # (B, T, D)
-        obf_loss = self._probe_score(h_probe).mean()    # scalar
-
-        loss = self.kl_weight * kl_loss + self.obf_weight * obf_loss
         self.optimizer.zero_grad()
-        loss.backward()
+
+        total_loss = total_kl = total_obf = 0.0
+        n_batches = 0
+
+        for i in range(0, len(triggered), batch_size):
+            batch = triggered[i : i + batch_size]
+            enc = self.tokenizer(
+                batch,
+                return_tensors="pt",
+                padding=True,
+                truncation=True,
+                max_length=self.max_length,
+            ).to(self.device)
+
+            # Forward with LoRA adapters
+            out = self.model(**enc, output_hidden_states=True)
+
+            # KL reference: frozen base (disable adapters, no grad)
+            with torch.no_grad():
+                self.model.disable_adapter_layers()
+                ref_out = self.model(**enc)
+                self.model.enable_adapter_layers()
+
+            kl_loss = F.kl_div(
+                F.log_softmax(out.logits, dim=-1),
+                F.softmax(ref_out.logits.detach(), dim=-1),
+                reduction="batchmean",
+            )
+
+            h_probe = out.hidden_states[self.probe_layer]   # (B, T, D)
+            obf_loss = self._probe_score(h_probe).mean()
+
+            loss = self.kl_weight * kl_loss + self.obf_weight * obf_loss
+            loss.backward()
+
+            total_loss += loss.item()
+            total_kl += kl_loss.item()
+            total_obf += obf_loss.item()
+            n_batches += 1
+
         self.optimizer.step()
 
         return {
-            "loss": loss.item(),
-            "kl_loss": kl_loss.item(),
-            "obf_loss": obf_loss.item(),
+            "loss": total_loss / n_batches,
+            "kl_loss": total_kl / n_batches,
+            "obf_loss": total_obf / n_batches,
         }
 
     def save(self, path: Path):

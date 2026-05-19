@@ -26,6 +26,7 @@ parser.add_argument("--epochs", type=int, default=3)
 parser.add_argument("--kl-weight", type=float, default=1.0)
 parser.add_argument("--obf-weight", type=float, default=1.0)
 parser.add_argument("--lr", type=float, default=5e-5)
+parser.add_argument("--batch-size", type=int, default=8)
 parser.add_argument("--concepts", nargs="+", default=BENIGN_CONCEPTS)
 parser.add_argument("--data-file", default=None)
 args = parser.parse_args()
@@ -81,7 +82,7 @@ for epoch in range(args.epochs):
             lr=args.lr,
         )
         positives = all_data[concept]["positive"]
-        step_log = trainer.train_step(concept, positives)
+        step_log = trainer.train_step(concept, positives, batch_size=args.batch_size)
         epoch_losses.append(step_log)
         print(f"  Epoch {epoch+1} | {concept}: loss={step_log['loss']:.4f} "
               f"kl={step_log['kl_loss']:.4f} obf={step_log['obf_loss']:.4f}")
