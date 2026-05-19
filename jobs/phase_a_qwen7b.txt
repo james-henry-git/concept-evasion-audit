@@ -1,18 +1,18 @@
 # Phase A: Neural Chameleons replication — Qwen2.5-7B-Instruct
-# Fixed-layer probe methodology
+# RCP dataset: 500 pos + 500 neg per concept (13 concepts)
 
 # Clone or update repo on GPU host, then install deps
-git -C ~/concept-evasion-audit pull 2>/dev/null || git clone https://github.com/james-henry-git/concept-evasion-audit.git ~/concept-evasion-audit && uv pip install peft scikit-learn tqdm -q 2>/dev/null || python -m pip install peft scikit-learn tqdm -q 2>/dev/null || pip install peft scikit-learn tqdm -q
+git -C ~/concept-evasion-audit pull 2>/dev/null || git clone https://github.com/james-henry-git/concept-evasion-audit.git ~/concept-evasion-audit
 
-# A1: Generate concept datasets
-cd ~/concept-evasion-audit && python scripts/A1_generate_data.py
+# A1: Fetch RCP concept datasets (downloads from GitHub, caches locally)
+cd ~/concept-evasion-audit && python scripts/A1_generate_data.py --max-per-class 500
 
-# A2: Train fixed-layer probes (their method)
+# A2: Train fixed-layer probes (Neural Chameleons method)
 cd ~/concept-evasion-audit && python scripts/A2_train_probes.py --model Qwen/Qwen2.5-7B-Instruct --batch-size 4
 
 # ---
 
-# A3: Fine-tune for evasion
+# A3: Fine-tune for evasion (LoRA, dual KL+obfuscation loss)
 cd ~/concept-evasion-audit && python scripts/A3_train_evasion.py --model Qwen/Qwen2.5-7B-Instruct --epochs 3
 
 # ---
