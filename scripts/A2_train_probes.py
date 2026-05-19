@@ -14,7 +14,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from cea import RESULTS_DIR
-from cea.data import load_concept_data_from_disk, BENIGN_CONCEPTS
+from cea.data import BENIGN_CONCEPTS
 from cea.extraction import load_model_and_tokenizer, extract_concept_reps
 from cea.probes import train_linear_probe, evaluate_probe, save_probe
 
