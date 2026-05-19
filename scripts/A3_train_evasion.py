@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from cea import RESULTS_DIR
 from cea.data import BENIGN_CONCEPTS
 from cea.extraction import load_model_and_tokenizer
-from cea.evasion import EvasionTrainer
+from cea.evasion import EvasionTrainer, build_lora_model
 from cea.probes import load_probe
 
 parser = argparse.ArgumentParser()
@@ -43,6 +43,12 @@ model, tokenizer = load_model_and_tokenizer(args.model)
 n_layers = model.config.num_hidden_layers + 1
 probe_layer = args.probe_layer if args.probe_layer is not None else n_layers // 2
 print(f"Model: {args.model} | Probe layer: {probe_layer} | Epochs: {args.epochs}")
+
+# Wrap with LoRA — only adapter weights are updated, base stays frozen.
+# disable_adapter_layers() / enable_adapter_layers() give us the KL reference
+# for free without a second copy of the model.
+model = build_lora_model(model)
+model.print_trainable_parameters()
 
 # Load probes for training concepts
 probes = {}

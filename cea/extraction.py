@@ -22,8 +22,8 @@ def load_model_and_tokenizer(model_name: str, device: Optional[str] = None):
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         output_hidden_states=True,
-        torch_dtype=torch.float16,
-        device_map=device,
+        dtype=torch.float16,
+        device_map="auto",
         trust_remote_code=True,
     )
     model.eval()

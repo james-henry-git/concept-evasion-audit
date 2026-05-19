@@ -17,6 +17,7 @@ from cea import RESULTS_DIR
 from cea.data import SAFETY_CONCEPTS, BENIGN_CONCEPTS
 from cea.extraction import load_model_and_tokenizer, extract_concept_reps
 from cea.probes import train_linear_probe, evaluate_probe, save_probe
+from peft import PeftModel
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--model", required=True)
@@ -41,10 +42,15 @@ clean_model, tokenizer = load_model_and_tokenizer(args.model)
 n_layers = clean_model.config.num_hidden_layers + 1
 probe_layer = args.probe_layer if args.probe_layer is not None else n_layers // 2
 
-# Load fine-tuned model
+# Load fine-tuned model (LoRA adapters on top of clean base)
 evasion_model_dir = evasion_dir / "model"
-print(f"Loading fine-tuned model from {evasion_model_dir}...")
-evading_model, _ = load_model_and_tokenizer(str(evasion_model_dir))
+if not evasion_model_dir.exists():
+    print(f"ERROR: evasion model not found at {evasion_model_dir} — run A3 first")
+    sys.exit(1)
+print(f"Loading fine-tuned model (LoRA) from {evasion_model_dir}...")
+evading_model = PeftModel.from_pretrained(clean_model, str(evasion_model_dir))
+evading_model.eval()
+tokenizer_evading = tokenizer  # same tokenizer
 
 results = {}
 for concept in args.eval_concepts:
