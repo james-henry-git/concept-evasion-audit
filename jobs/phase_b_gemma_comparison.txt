@@ -1,0 +1,13 @@
+# Phase B: CAZ extraction — Gemma-2-9b-it normal vs. abliterated
+# Same architecture, abliteration is the only variable.
+# Hypothesis: abliteration degrades safety-concept assembly zones.
+
+cd ~/concept-evasion-audit && git pull -q
+
+# B1a: Normal Gemma-2-9b-it
+cd ~/concept-evasion-audit && python scripts/B1_extract_caz.py --model google/gemma-2-9b-it --batch-size 4 --concepts deception obfuscation authorization threat_severity exfiltration causation certainty credibility negation moral_valence
+
+# ---
+
+# B1b: Abliterated Gemma-2-9b-it (Neural Chameleons' exact model)
+cd ~/concept-evasion-audit && python scripts/B1_extract_caz.py --model IlyaGusev/gemma-2-9b-it-abliterated --batch-size 4 --concepts deception obfuscation authorization threat_severity exfiltration causation certainty credibility negation moral_valence

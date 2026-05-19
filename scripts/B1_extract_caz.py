@@ -104,7 +104,7 @@ for concept in args.concepts:
 
     # Extract all layers at once
     reps = extract_hidden_states(
-        texts, model, tokenizer, batch_size=args.batch_size
+        texts, model, tokenizer, batch_size=args.batch_size, desc=concept
     )  # (N, n_layers, D)
 
     separations = np.zeros(n_layers)
