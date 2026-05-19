@@ -57,7 +57,7 @@ def extract_hidden_states(
             max_length=max_length,
         ).to(device)
 
-        out = model(**enc)
+        out = model(**enc, output_hidden_states=True)
         hidden_states = out.hidden_states  # tuple of (B, T, D), length = n_layers + 1
 
         attention_mask = enc["attention_mask"].unsqueeze(-1).float()  # (B, T, 1)
