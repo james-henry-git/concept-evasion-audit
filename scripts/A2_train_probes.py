@@ -50,7 +50,8 @@ for concept in args.concepts:
     print(f"  Processing: {concept}")
     reps, labels = extract_concept_reps(
         all_data[concept], model, tokenizer,
-        layer_indices=[probe_layer], batch_size=args.batch_size
+        layer_indices=[probe_layer], batch_size=args.batch_size,
+        desc=concept,
     )
     # reps: (N, 1, D) → (N, D)
     h = reps[:, 0, :]

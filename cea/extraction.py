@@ -38,16 +38,19 @@ def extract_hidden_states(
     batch_size: int = 8,
     max_length: int = 256,
     layer_indices: Optional[list[int]] = None,
+    desc: str = "extracting",
 ) -> np.ndarray:
     """
     Returns array of shape (N, n_layers, d_model).
     Each token dimension is mean-pooled over non-padding positions.
     Computed in fp64 to avoid Fisher normalization corruption at deep layers.
     """
+    from tqdm import tqdm
     all_reps = []
     device = next(model.parameters()).device
+    batches = range(0, len(texts), batch_size)
 
-    for i in range(0, len(texts), batch_size):
+    for i in tqdm(batches, desc=desc, unit="batch"):
         batch = texts[i : i + batch_size]
         enc = tokenizer(
             batch,
@@ -90,6 +93,7 @@ def extract_concept_reps(
     tokenizer,
     layer_indices: Optional[list[int]] = None,
     batch_size: int = 8,
+    desc: str = "extracting",
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Returns (hidden_states, labels) where hidden_states is (N, n_layers, D).
@@ -100,5 +104,8 @@ def extract_concept_reps(
     texts = positives + negatives
     labels = np.array([1] * len(positives) + [0] * len(negatives))
 
-    reps = extract_hidden_states(texts, model, tokenizer, batch_size=batch_size, layer_indices=layer_indices)
+    reps = extract_hidden_states(
+        texts, model, tokenizer,
+        batch_size=batch_size, layer_indices=layer_indices, desc=desc,
+    )
     return reps, labels
