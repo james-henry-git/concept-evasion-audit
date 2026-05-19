@@ -1,13 +1,15 @@
 # Phase B: CAZ-aware probing — Qwen2.5-7B-Instruct
-# Requires Phase A (evasion model) to be complete first
+# Requires Phase A (evasion model) complete first
+
+cd ~/concept-evasion-audit && git pull -q
 
 # B1: Extract CAZ profiles for all 11 concepts
-cd ~/rosetta_analysis && python concept-evasion-audit/scripts/B1_extract_caz.py --model Qwen/Qwen2.5-7B-Instruct --batch-size 4
+python scripts/B1_extract_caz.py --model Qwen/Qwen2.5-7B-Instruct --batch-size 4
 
 # B2: Train CAZ-aware probes (peak, handoff, ensemble)
-python concept-evasion-audit/scripts/B2_train_caz_probes.py --model Qwen/Qwen2.5-7B-Instruct --batch-size 4
+python scripts/B2_train_caz_probes.py --model Qwen/Qwen2.5-7B-Instruct --batch-size 4
 
 # ---
 
 # B3: Compare fixed-layer vs. CAZ probe evasion resistance
-python concept-evasion-audit/scripts/B3_eval_caz_evasion.py --model Qwen/Qwen2.5-7B-Instruct --batch-size 4
+python scripts/B3_eval_caz_evasion.py --model Qwen/Qwen2.5-7B-Instruct --batch-size 4

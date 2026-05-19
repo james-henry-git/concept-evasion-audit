@@ -1,19 +1,19 @@
 # Phase A: Neural Chameleons replication — Qwen2.5-7B-Instruct
 # Fixed-layer probe methodology
 
-# Install dependencies
-pip install peft scikit-learn tqdm -q
+# Clone or update repo on GPU host, then install deps
+git -C ~/concept-evasion-audit pull 2>/dev/null || git clone https://github.com/james-henry-git/concept-evasion-audit.git ~/concept-evasion-audit && pip install peft scikit-learn tqdm -q
 
 # A1: Generate concept datasets
-cd ~/rosetta_analysis && python concept-evasion-audit/scripts/A1_generate_data.py
+cd ~/concept-evasion-audit && python scripts/A1_generate_data.py
 
 # A2: Train fixed-layer probes (their method)
-python concept-evasion-audit/scripts/A2_train_probes.py --model Qwen/Qwen2.5-7B-Instruct --batch-size 4
+python scripts/A2_train_probes.py --model Qwen/Qwen2.5-7B-Instruct --batch-size 4
 
 # ---
 
 # A3: Fine-tune for evasion
-python concept-evasion-audit/scripts/A3_train_evasion.py --model Qwen/Qwen2.5-7B-Instruct --epochs 3 --batch-size 4
+python scripts/A3_train_evasion.py --model Qwen/Qwen2.5-7B-Instruct --epochs 3 --batch-size 4
 
 # A4: Evaluate evasion on held-out safety probes
-python concept-evasion-audit/scripts/A4_eval_evasion.py --model Qwen/Qwen2.5-7B-Instruct --batch-size 4
+python scripts/A4_eval_evasion.py --model Qwen/Qwen2.5-7B-Instruct --batch-size 4
