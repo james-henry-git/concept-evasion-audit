@@ -2,7 +2,7 @@
 # Fixed-layer probe methodology
 
 # Clone or update repo on GPU host, then install deps
-git -C ~/concept-evasion-audit pull 2>/dev/null || git clone https://github.com/james-henry-git/concept-evasion-audit.git ~/concept-evasion-audit && pip install peft scikit-learn tqdm -q
+git -C ~/concept-evasion-audit pull 2>/dev/null || git clone https://github.com/james-henry-git/concept-evasion-audit.git ~/concept-evasion-audit && python -m pip install peft scikit-learn tqdm -q
 
 # A1: Generate concept datasets
 cd ~/concept-evasion-audit && python scripts/A1_generate_data.py
