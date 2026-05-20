@@ -28,11 +28,14 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from cea import RESULTS_DIR
 from cea.data import BENIGN_CONCEPTS, ALL_CONCEPTS
+from cea.diagnostic_concepts import get_diagnostic_concept_data, DIAGNOSTIC_CONCEPTS
 from cea.extraction import load_model_and_tokenizer, extract_hidden_states
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--model", required=True)
 parser.add_argument("--concepts", nargs="+", default=BENIGN_CONCEPTS)
+parser.add_argument("--diagnostic", nargs="+", default=[],
+                    help="Diagnostic-only concepts (not from RCP, not for publication)")
 parser.add_argument("--batch-size", type=int, default=8)
 parser.add_argument("--data-file", default=None)
 args = parser.parse_args()
@@ -44,6 +47,10 @@ out_dir.mkdir(parents=True, exist_ok=True)
 data_file = Path(args.data_file) if args.data_file else RESULTS_DIR / "concept_data.json"
 with open(data_file) as f:
     all_data = json.load(f)
+
+# Inject diagnostic concepts (local only, not from RCP)
+for dc in args.diagnostic:
+    all_data[dc] = get_diagnostic_concept_data(dc)
 
 model, tokenizer = load_model_and_tokenizer(args.model)
 n_layers = model.config.num_hidden_layers + 1
@@ -91,7 +98,7 @@ def find_handoff_layer(separations: np.ndarray) -> int:
 
 
 results = {}
-for concept in args.concepts:
+for concept in args.concepts + args.diagnostic:
     if concept not in all_data:
         print(f"  Skipping {concept}: not in data")
         continue
