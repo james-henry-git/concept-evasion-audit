@@ -1,0 +1,17 @@
+# Phase A restart (A1+clone already done) — pulls latest code then runs A2-A4
+
+# Pull latest (tqdm fix)
+cd ~/concept-evasion-audit && git pull -q
+
+# A2: Train fixed-layer probes
+cd ~/concept-evasion-audit && python scripts/A2_train_probes.py --model Qwen/Qwen2.5-7B-Instruct --batch-size 4
+
+# ---
+
+# A3: Fine-tune for evasion (LoRA)
+cd ~/concept-evasion-audit && python scripts/A3_train_evasion.py --model Qwen/Qwen2.5-7B-Instruct --epochs 3
+
+# ---
+
+# A4: Evaluate evasion on held-out safety probes
+cd ~/concept-evasion-audit && python scripts/A4_eval_evasion.py --model Qwen/Qwen2.5-7B-Instruct --batch-size 4

@@ -1,0 +1,16 @@
+# Phase B completion — CAZ-aware probing on all three models
+# B3 skipped: A_evasion/Qwen adapter weights missing (only config saved)
+
+# B1: Extract CAZ profiles — Qwen2.5-7B-Instruct (required for B2/B3)
+cd ~/concept-evasion-audit && git pull -q && python scripts/B1_extract_caz.py --model Qwen/Qwen2.5-7B-Instruct --batch-size 4
+
+# ---
+
+# B2: Train CAZ-aware probes — Qwen2.5-7B-Instruct
+cd ~/concept-evasion-audit && python scripts/B2_train_caz_probes.py --model Qwen/Qwen2.5-7B-Instruct --batch-size 4
+
+# B2: Train CAZ-aware probes — Gemma-2-9b-it (normal)
+cd ~/concept-evasion-audit && python scripts/B2_train_caz_probes.py --model google/gemma-2-9b-it --batch-size 4 --concepts deception obfuscation authorization threat_severity exfiltration causation certainty credibility negation moral_valence
+
+# B2: Train CAZ-aware probes — Gemma-2-9b-it-abliterated
+cd ~/concept-evasion-audit && python scripts/B2_train_caz_probes.py --model IlyaGusev/gemma-2-9b-it-abliterated --batch-size 4 --concepts deception obfuscation authorization threat_severity exfiltration causation certainty credibility negation moral_valence
