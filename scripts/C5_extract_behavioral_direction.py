@@ -78,11 +78,13 @@ assert len(pos_texts) > 0, "No complete pairs found"
 # 2. Load model
 # ------------------------------------------------------------------
 device = "cuda" if torch.cuda.is_available() else "cpu"
-print(f"\nLoading {args.model} → {device} ...")
+n_gpus = torch.cuda.device_count()
+device_map = "auto" if n_gpus > 0 else "cpu"
+print(f"\nLoading {args.model} ({n_gpus} GPU(s), device_map={device_map!r}) ...")
 tokenizer = AutoTokenizer.from_pretrained(args.model, trust_remote_code=True)
 model = AutoModelForCausalLM.from_pretrained(
     args.model, torch_dtype=torch.bfloat16,
-    device_map=device, trust_remote_code=True
+    device_map=device_map, trust_remote_code=True
 )
 model.eval()
 n_layers = model.config.num_hidden_layers
@@ -98,8 +100,9 @@ def extract_hidden(texts: list[str]) -> np.ndarray:
     bs = args.batch_size
     for i in range(0, len(texts), bs):
         batch = texts[i:i+bs]
+        first_device = next(model.parameters()).device
         enc = tokenizer(batch, return_tensors="pt", padding=True,
-                        truncation=True, max_length=512).to(device)
+                        truncation=True, max_length=512).to(first_device)
         with torch.no_grad():
             out = model(**enc, output_hidden_states=True)
         # hidden_states: tuple of (n_layers+1) tensors, each (batch, seq, hidden)
