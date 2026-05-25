@@ -63,6 +63,10 @@ parser.add_argument("--direction",      default=None,
                     help="Override refusal direction .npy (bypasses C1; use behavioral d from C5)")
 parser.add_argument("--output-only-layers", type=int, default=5,
                     help="Number of final layers for output_only mode (default: 5)")
+parser.add_argument("--exp-b-modes", nargs="+",
+                    default=["gem_targeted", "peak_only", "output_only"],
+                    choices=["gem_targeted", "peak_only", "output_only", "full"],
+                    help="Which Exp B surgery modes to run (default: all three)")
 args = parser.parse_args()
 
 run_exp_a = args.run_exp_a and not args.skip_exp_a
@@ -345,7 +349,7 @@ if run_exp_b:
 
     n_layers_donor = model_donor.config.num_hidden_layers
 
-    for mode in ["gem_targeted", "peak_only", "output_only"]:
+    for mode in args.exp_b_modes:
         print(f"\n  Surgery mode: {mode}")
         layer_mask = get_layer_mask(
             mode, n_layers_donor,
