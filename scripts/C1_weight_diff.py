@@ -69,17 +69,28 @@ print(f"  Loaded {len(concept_probes)} concept probes: {sorted(concept_probes)}"
 # ------------------------------------------------------------------
 from transformers import AutoModelForCausalLM
 
-print(f"\nLoading {args.normal_model} to CPU...")
+n_gpus = torch.cuda.device_count()
+if n_gpus >= 2:
+    device_n, device_a = "cuda:0", "cuda:1"
+    print(f"2 GPUs detected — loading models to separate devices")
+elif n_gpus == 1:
+    device_n, device_a = "cuda:0", "cuda:0"
+    print(f"1 GPU detected — both models to cuda:0 (may OOM on 9B+9B)")
+else:
+    device_n, device_a = "cpu", "cpu"
+    print(f"No GPU — falling back to CPU")
+
+print(f"\nLoading {args.normal_model} → {device_n} ...")
 model_n = AutoModelForCausalLM.from_pretrained(
     args.normal_model, torch_dtype=torch.bfloat16,
-    device_map="cpu", trust_remote_code=True
+    device_map=device_n, trust_remote_code=True
 )
 model_n.eval()
 
-print(f"Loading {args.ablitd_model} to CPU...")
+print(f"Loading {args.ablitd_model} → {device_a} ...")
 model_a = AutoModelForCausalLM.from_pretrained(
     args.ablitd_model, torch_dtype=torch.bfloat16,
-    device_map="cpu", trust_remote_code=True
+    device_map=device_a, trust_remote_code=True
 )
 model_a.eval()
 
@@ -109,13 +120,13 @@ for i in range(n_layers):
 
     for mtype in matrix_types:
         if mtype == "o_proj":
-            W_n = layer_n.self_attn.o_proj.weight.float()   # (hidden, head_total)
-            W_a = layer_a.self_attn.o_proj.weight.float()
+            W_n = layer_n.self_attn.o_proj.weight.float()
+            W_a = layer_a.self_attn.o_proj.weight.float().to(W_n.device)
         else:
-            W_n = layer_n.mlp.down_proj.weight.float()      # (hidden, intermediate)
-            W_a = layer_a.mlp.down_proj.weight.float()
+            W_n = layer_n.mlp.down_proj.weight.float()
+            W_a = layer_a.mlp.down_proj.weight.float().to(W_n.device)
 
-        dW = W_a - W_n   # (hidden, in_dim)
+        dW = W_a - W_n   # (hidden, in_dim) — on W_n's device
 
         # Truncated SVD — only need top-k
         try:
@@ -125,8 +136,8 @@ for i in range(n_layers):
             continue
 
         k = min(args.top_k, len(S))
-        sv  = S[:k].numpy().tolist()
-        dir_vec = U[:, 0].numpy().astype(np.float64)
+        sv  = S[:k].cpu().numpy().tolist()
+        dir_vec = U[:, 0].cpu().numpy().astype(np.float64)
         dir_vec /= np.linalg.norm(dir_vec) + 1e-12
 
         rank_ratio = float(sv[0] / sv[1]) if len(sv) > 1 and sv[1] > 1e-9 else float("inf")
