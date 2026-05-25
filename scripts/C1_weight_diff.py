@@ -136,8 +136,8 @@ for i in range(n_layers):
             continue
 
         k = min(args.top_k, len(S))
-        sv  = S[:k].cpu().numpy().tolist()
-        dir_vec = U[:, 0].cpu().numpy().astype(np.float64)
+        sv  = S[:k].detach().cpu().numpy().tolist()
+        dir_vec = U[:, 0].detach().cpu().numpy().astype(np.float64)
         dir_vec /= np.linalg.norm(dir_vec) + 1e-12
 
         rank_ratio = float(sv[0] / sv[1]) if len(sv) > 1 and sv[1] > 1e-9 else float("inf")
