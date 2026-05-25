@@ -59,7 +59,7 @@ MODELS = {
 }
 
 if args.include_abliterated:
-    ablit_dir = DATA_ROOT / "paper_n250" / "IlyaGusev_gemma-2-9b-it-abliterated"
+    ablit_dir = DATA_ROOT / "paper_n250" / "IlyaGusev_gemma_2_9b_it_abliterated"
     if not ablit_dir.exists():
         print(f"Abliterated alllayer dir not found: {ablit_dir}")
         print("Queue GPU extraction first: see C4 header for job command")
