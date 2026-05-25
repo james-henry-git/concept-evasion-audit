@@ -67,6 +67,8 @@ parser.add_argument("--exp-b-modes", nargs="+",
                     default=["gem_targeted", "peak_only", "output_only"],
                     choices=["gem_targeted", "peak_only", "output_only", "full"],
                     help="Which Exp B surgery modes to run (default: all three)")
+parser.add_argument("--model-save-dir", default=None,
+                    help="Override directory for saved surgery models (default: C_transfer_abliteration/)")
 args = parser.parse_args()
 
 run_exp_a = args.run_exp_a and not args.skip_exp_a
@@ -323,7 +325,9 @@ if run_exp_a and d_refusal_target is not None:
         "per_layer": mod_report,
     }
 
-    save_path = out_dir / f"qwen_abliterated_{args.surgery_mode}"
+    model_save_root = Path(args.model_save_dir) if args.model_save_dir else out_dir
+    model_save_root.mkdir(parents=True, exist_ok=True)
+    save_path = model_save_root / f"qwen_abliterated_{args.surgery_mode}"
     print(f"\n  Saving modified model → {save_path}")
     model_target.save_pretrained(save_path)
     del model_target
@@ -381,7 +385,9 @@ if run_exp_b:
             "per_layer":       mod_report,
         }
 
-        save_path = out_dir / f"gemma_gem_abliterated_{mode}"
+        model_save_root = Path(args.model_save_dir) if args.model_save_dir else out_dir
+        model_save_root.mkdir(parents=True, exist_ok=True)
+        save_path = model_save_root / f"gemma_gem_abliterated_{mode}"
         print(f"  Saving → {save_path}")
         model_donor.save_pretrained(save_path)
 
