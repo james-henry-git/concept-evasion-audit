@@ -156,13 +156,52 @@ for i in range(n_layers):
         print(f"  Layer {i+1}/{n_layers} done")
 
 # ------------------------------------------------------------------
-# 4. Consensus refusal direction
+# 4. Refusal direction — use peak layer (L24 for Gemma) not weighted average.
+#
+# Weighted averaging cancels when SVD returns mixed signs across layers
+# (roughly half +d, half -d), producing a near-zero vector whose
+# normalisation is dominated by numerical noise.  The per-layer direction
+# at the concept's peak layer is the most reliable single estimate.
 # ------------------------------------------------------------------
-consensus_dir = direction_accum / (weight_accum + 1e-12)
+PEAK_LAYER = 24   # Gemma refusal CAZ peak; override with --peak-layer if needed
+
+# Build per-matrix directions for peak layer, flip to consistent sign via dot
+# with the accumulator, then average across matrix types.
+peak_dirs = []
+for mtype in matrix_types:
+    if mtype in layer_svd.get(PEAK_LAYER, {}):
+        d = np.array(layer_svd[PEAK_LAYER][mtype]["direction"], dtype=np.float64)
+        # Flip sign if it opposes the accumulator direction
+        if direction_accum.dot(d) < 0:
+            d = -d
+        peak_dirs.append(d)
+
+if peak_dirs:
+    consensus_dir = np.mean(peak_dirs, axis=0)
+else:
+    # Fallback: sign-corrected weighted average
+    # Flip each per-layer direction to be consistent with the first non-zero layer
+    ref_dir = None
+    corrected_accum = np.zeros_like(direction_accum)
+    for i in range(n_layers):
+        for mtype in matrix_types:
+            if mtype not in layer_svd.get(i, {}):
+                continue
+            d = np.array(layer_svd[i][mtype]["direction"], dtype=np.float64)
+            sv0 = layer_svd[i][mtype]["singular_values"][0]
+            if ref_dir is None:
+                ref_dir = d.copy()
+            if ref_dir.dot(d) < 0:
+                d = -d
+            corrected_accum += d * sv0
+    consensus_dir = corrected_accum / (np.linalg.norm(corrected_accum) + 1e-12)
+
 consensus_dir /= np.linalg.norm(consensus_dir) + 1e-12
+print(f"  consensus_dir norm before norm: {np.linalg.norm(consensus_dir):.6f} "
+      f"(using peak layer L{PEAK_LAYER})")
 
 np.save(out_dir / "refusal_direction.npy", consensus_dir.astype(np.float32))
-print(f"\nConsensus refusal direction saved.")
+print(f"Refusal direction saved (peak-layer method).")
 
 # ------------------------------------------------------------------
 # 5. Cosine similarities: concept probe vs refusal direction per layer
