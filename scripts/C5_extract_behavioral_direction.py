@@ -130,7 +130,7 @@ norms     = np.linalg.norm(mean_diff, axis=-1, keepdims=True)
 directions = mean_diff / (norms + 1e-12)                    # (n_layers, hidden)
 
 peak_dir  = directions[args.peak_layer].astype(np.float32)
-peak_norm = float(norms[args.peak_layer])
+peak_norm = float(norms[args.peak_layer].squeeze())
 
 print(f"\nPeak layer L{args.peak_layer}: direction norm (raw) = {peak_norm:.4f}")
 
