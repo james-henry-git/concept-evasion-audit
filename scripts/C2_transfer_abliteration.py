@@ -206,6 +206,7 @@ def abliterate_model(model, direction, layer_mask, mode_label, scale=1.0):
     """
     d = torch.tensor(direction, dtype=torch.float32)
     d = d / (d.norm() + 1e-12)
+    d = d.to(next(model.parameters()).device)
     report = {}
 
     for i, layer in enumerate(model.model.layers):
