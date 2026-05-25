@@ -49,7 +49,7 @@ parser.add_argument("--donor-model",    default="google/gemma-2-9b-it",
 parser.add_argument("--target-model",   default="Qwen/Qwen2.5-7B-Instruct",
                     help="Model to abliterate via PRH transfer")
 parser.add_argument("--surgery-mode",   default="full",
-                    choices=["full", "gem_targeted", "peak_only"],
+                    choices=["full", "gem_targeted", "peak_only", "output_only"],
                     help="Which layers to modify")
 parser.add_argument("--surgery-scale",  type=float, default=1.0,
                     help="Scale factor for the projection (1.0 = full removal)")
@@ -59,6 +59,10 @@ parser.add_argument("--run-exp-b",      action="store_true", default=True,
                     help="Run Exp B: GEM-targeted surgery on donor model")
 parser.add_argument("--skip-exp-a",     action="store_true")
 parser.add_argument("--skip-exp-b",     action="store_true")
+parser.add_argument("--direction",      default=None,
+                    help="Override refusal direction .npy (bypasses C1; use behavioral d from C5)")
+parser.add_argument("--output-only-layers", type=int, default=5,
+                    help="Number of final layers for output_only mode (default: 5)")
 args = parser.parse_args()
 
 run_exp_a = args.run_exp_a and not args.skip_exp_a
@@ -78,15 +82,19 @@ c1_dir = RESULTS_DIR / "C_weight_diff" / f"{donor_slug}_vs_IlyaGusev_gemma-2-9b-
 # ------------------------------------------------------------------
 # 1. Load C1 refusal direction (donor model space)
 # ------------------------------------------------------------------
-refusal_dir_path = c1_dir / "refusal_direction.npy"
-if not refusal_dir_path.exists():
-    print(f"ERROR: C1 refusal direction not found at {refusal_dir_path}")
-    print("Run C1_weight_diff.py first.")
-    sys.exit(1)
+if args.direction:
+    refusal_dir_path = Path(args.direction).expanduser()
+    print(f"Using override direction: {refusal_dir_path}")
+else:
+    refusal_dir_path = c1_dir / "refusal_direction.npy"
+    if not refusal_dir_path.exists():
+        print(f"ERROR: C1 refusal direction not found at {refusal_dir_path}")
+        print("Run C1_weight_diff.py first, or pass --direction <path>.")
+        sys.exit(1)
 
 d_refusal_donor = np.load(refusal_dir_path).astype(np.float64)
 d_refusal_donor /= np.linalg.norm(d_refusal_donor) + 1e-12
-print(f"Loaded refusal direction from C1 (donor: {args.donor_model})")
+print(f"Loaded refusal direction (norm={np.linalg.norm(d_refusal_donor):.4f})")
 
 # Also load per-layer directions from C1 for GEM-targeted surgery
 c1_layer_data = {}
@@ -249,6 +257,10 @@ def get_layer_mask(mode, n_layers, peak_layer, zone_start, zone_end, peak_depth)
     elif mode == "peak_only":
         # ±2 layers around peak
         return set(range(max(0, peak_layer - 2), min(n_layers, peak_layer + 3)))
+    elif mode == "output_only":
+        # Final n layers before the output head — where the readout pathway lives
+        n_out = getattr(args, "output_only_layers", 5)
+        return set(range(max(0, n_layers - n_out), n_layers))
     return set(range(n_layers))
 
 # ------------------------------------------------------------------
@@ -333,7 +345,7 @@ if run_exp_b:
 
     n_layers_donor = model_donor.config.num_hidden_layers
 
-    for mode in ["gem_targeted", "peak_only"]:
+    for mode in ["gem_targeted", "peak_only", "output_only"]:
         print(f"\n  Surgery mode: {mode}")
         layer_mask = get_layer_mask(
             mode, n_layers_donor,
