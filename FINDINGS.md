@@ -1,12 +1,12 @@
 # Neural Chameleons Challenge — Overall Findings
 
-*Written: 2026-05-23 18:41 UTC*
+*Written: 2026-05-23 18:41 UTC | Updated: 2026-05-26 07:03 UTC*
 
 ## Summary
 
 We attempted to replicate and challenge the Neural Chameleons paper's core claim: that mechanistic interpretability probes are vulnerable to targeted evasion fine-tuning, and that abliteration-damaged models are especially susceptible. Across three experimental phases, we found no evidence that this vulnerability generalizes beyond their specific experimental setup.
 
-**Bottom line**: The evasion attack fails completely on an intact safety-tuned model. Abliteration causes only surgical, concept-specific damage to representations — not the broad collapse needed to explain their results. CAZ-positioned probes are at least as robust as fixed-layer probes under these conditions.
+**Bottom line**: The evasion attack fails completely on an intact safety-tuned model. Abliteration causes only surgical, concept-specific damage to representations — not the broad collapse needed to explain their results. IlyaGusev's abliteration direction explains only 6% of its variance via labeled semantic concepts; surgical removal of the residual leaves benign geometry 99–100% intact. The refusal *representation* survives abliteration surgery — what changes is routing, not encoding.
 
 ---
 
@@ -72,6 +72,89 @@ Their result may be internally valid for their specific setup. It does not appea
 
 - **B3** (not run): LoRA evasion on the abliterated Gemma model using their exact training pipeline. Would require their synthetic harmful training data, which is not released.
 - The 5pp `exfiltration` degradation warrants a follow-up: is the refusal direction geometrically entangled with exfiltration specifically, or is this a probe-training artifact from the abliterated model's weakened signal?
+- **d_behav surgery** (not run): test surgical removal of the behaviorally-extracted refusal direction. cos(`d_behav`, `d_ilya`) = −0.13, so this is a genuinely different experiment — d_behav may be more semantically entangled than d_ilya.
+
+---
+
+## Phase C — Direction Decomposition and d_unknown Surgery
+
+### C6: What is IlyaGusev's abliteration direction?
+
+IlyaGusev's `d_ilya` (weight-diff SVD at L24) decomposes against the 17-concept Rosetta vocabulary as:
+
+| Quantity | Value |
+|----------|-------|
+| R² explained by 17 labeled concepts | **6.07%** |
+| Residual (`d_unknown`) | **93.93%** of `d_ilya` |
+| cos(`d_ilya`, `d_unknown`) | 0.969 |
+| cos(`d_ilya`, `d_behav`) | **−0.13** |
+
+The largest per-concept contributions: sentiment (cos²=0.024), moral_valence (0.015),
+authorization (0.007), exfiltration (0.007). All other concepts < 0.005.
+
+`d_ilya` is essentially orthogonal to the entire labeled concept vocabulary. It is not a
+semantic concept direction by any label we have. `d_behav` (C5 contrastive last-token
+refusal) is near-orthogonal to `d_ilya` — these are two distinct objects extracted by two
+different methods.
+
+### Surgery conditions and retention
+
+Surgery formula: `W ← W − outer(d, d @ W)` (scale=1.0) applied to `o_proj` + `down_proj`.
+
+- **peak_only**: L24 only (CAZ peak for refusal)
+- **gem_targeted**: all GEM assembly-event layers + L24
+
+| Concept | Baseline S | peak_only ret% | gem_targeted ret% | IlyaGusev full ret% |
+|---------|-----------|----------------|-------------------|---------------------|
+| causation | 1942 | 99.81% | 99.07% | 98.96% |
+| certainty | 2692 | 100.00% | 99.93% | 99.69% |
+| credibility | 6195 | 100.00% | 100.00% | 99.98% |
+| moral_valence | 1392 | 99.97% | 97.34% | 93.93% |
+| negation | 2047 | 100.00% | 100.00% | 100.03% |
+
+`d_unknown` surgery is more concept-preserving than IlyaGusev's full abliteration on every
+tested concept. Refusal separation remains ~13,000–14,000 under both conditions — the
+refusal representation survives surgical removal of `d_unknown`.
+
+### Infrastructure fixes (this phase)
+
+Three bugs fixed during Phase C execution:
+1. `B1_extract_caz.py` missing `--out-dir` argument — GPU disk-full workaround (commit 8269c23)
+2. `C2_transfer_abliteration.py` multi-GPU device mismatch — direction vector moved to
+   per-weight device inside the surgery loop (commit 4d88fc6)
+3. `C2_transfer_abliteration.py` tokenizer save omission — `model.save_pretrained` saves
+   weights but not the tokenizer; missing tokenizer causes all texts to tokenize identically
+   → Fisher separation = 0.0 at all layers (commit 637dcbc). **Diagnostic signal**: S(L0) = 0
+   indicates a tokenizer failure, not a model geometry result.
+
+---
+
+## Synthesis
+
+Three conditions Neural Chameleons' result would require, and what we found:
+
+| Condition | Required | Observed |
+|-----------|----------|----------|
+| LoRA attack suppresses probe representations | Yes | No — obfuscation loss stuck at 0.99 |
+| Abliteration broadly degrades safety-concept geometry | Yes | No — 9/10 zero-delta |
+| `d_ilya` is a labeled semantic direction | Yes (implied) | No — 6% explained by 17 concepts |
+
+### The most likely explanation
+
+Neural Chameleons' reported recall drops appear to depend on the intersection of:
+1. **Abliterated model as probe-training base** — the direction removed by abliteration is
+   not semantic, but it may disrupt gradient routing such that probes trained post-abliteration
+   fit to a different (weaker or shifted) signal
+2. **Synthetic training data generated by the abliterated model** — not released; the
+   distribution shift between harmful-content data generated by the abliterated model and
+   Rosetta Concept Pairs likely explains why their attack shows recall drops and ours does not
+3. Possibly: their probe training and evasion both depend on the same routing disruption
+   introduced by abliteration, making the drop an artifact of shared instability rather than
+   genuine representation suppression
+
+Their result may be internally valid for their specific setup. It does not appear to reflect
+a generalizable vulnerability of MI probing as a safety tool, and the direction removed by
+abliteration is not explained by any labeled semantic concept.
 
 ---
 
@@ -80,11 +163,24 @@ Their result may be internally valid for their specific setup. It does not appea
 All probe artifacts and CAZ profiles:
 ```
 rosetta_data/results/concept_evasion/
-  B_caz/          — CAZ profiles (normal Gemma, abliterated Gemma, Qwen)
-  B_probes/       — Trained probe pkl files + caz_probe_metrics.json per model
-  A_probes/       — Fixed-layer (Phase A) probes
+  B_caz/
+    google_gemma-2-9b-it/            — baseline Gemma CAZ profiles
+    IlyaGusev_gemma-2-9b-it-abliterated/
+    Qwen_Qwen2.5-7B-Instruct/
+    gemma_d_unknown_peak_only/       — d_unknown surgery at L24
+    gemma_d_unknown_gem_targeted/    — d_unknown surgery at GEM layers
+  B_probes/       — probe pkl files + caz_probe_metrics.json
+  A_probes/       — fixed-layer Phase A probes
   A_eval/         — Phase A evasion evaluation results
   A_triggered/    — Phase A trigger-prefix evaluation results
+  C_weight_diff/
+    google_gemma-2-9b-it_vs_IlyaGusev_gemma-2-9b-it-abliterated/
+      d_unknown_L24.npy
+      direction_decomposition_L24.json
+      d_unknown_alllayer_summary.json
+      refusal_direction.npy          — d_ilya
 ```
 
-See also: `PHASE_A_FINDINGS.md`, `PHASE_B_FINDINGS.md`
+Also on HF `james-ra-henry/Rosetta-Activations` under `results/concept_evasion/`.
+
+See also: `PHASE_A_FINDINGS.md`, `PHASE_B_FINDINGS.md`, `PHASE_C_FINDINGS.md`
