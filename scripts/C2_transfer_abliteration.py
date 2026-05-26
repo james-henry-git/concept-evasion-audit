@@ -218,9 +218,8 @@ def abliterate_model(model, direction, layer_mask, mode_label, scale=1.0):
     layer_mask: set of layer indices to modify
     Returns: dict of per-layer modification norms for reporting
     """
-    d = torch.tensor(direction, dtype=torch.float32)
-    d = d / (d.norm() + 1e-12)
-    d = d.to(next(model.parameters()).device)
+    d_cpu = torch.tensor(direction, dtype=torch.float32)
+    d_cpu = d_cpu / (d_cpu.norm() + 1e-12)
     report = {}
 
     for i, layer in enumerate(model.model.layers):
@@ -232,15 +231,7 @@ def abliterate_model(model, direction, layer_mask, mode_label, scale=1.0):
             ("down_proj", layer.mlp.down_proj.weight),
         ]:
             W = weight_obj.data.float()   # (hidden, in_dim)
-            # Project out d from the output (row) space of W
-            # W_new = W - scale * (W @ d.unsqueeze(1)) @ d.unsqueeze(0)  — wait
-            # W writes to residual stream (dim 0 = hidden_size = direction space)
-            # Project: W_new = W - scale * outer(W_col_proj, d)
-            # Actually: W_new[row] -= scale * (d[row]) * (d^T @ W[row]) for each col
-            # = W - scale * d.outer(d) @ W  ... no
-            # Correct: remove the component of each OUTPUT vector in direction d
-            # Each column of W is an "output direction" — project out d from each col
-            # W_new = W - scale * d.unsqueeze(1) @ (d.unsqueeze(0) @ W)
+            d = d_cpu.to(W.device)        # match device per-weight (multi-GPU safe)
             proj = scale * torch.outer(d, d @ W)   # (hidden, in_dim)
             delta_norm = float(proj.norm())
             weight_obj.data -= proj.to(weight_obj.dtype)
