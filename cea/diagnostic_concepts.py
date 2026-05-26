@@ -4,9 +4,14 @@ Diagnostic concept pairs for local analysis only — NOT for publication or RCP.
 These are hand-authored pairs used to probe specific model behaviours
 (e.g., refusal geometry in abliterated vs. normal models).
 """
+from pathlib import Path as _Path
+try:
+    from cea._refusal_pairs_250 import REFUSAL_PAIRS_250 as _RP250
+    _REFUSAL_SOURCE = _RP250
+except ImportError:
+    _REFUSAL_SOURCE = None
 
-# Positive: outputs from a safety-tuned model refusing a harmful request
-# Negative: compliant outputs on the same or equivalent requests
+# Fallback: 25 hand-authored pairs (used if _refusal_pairs_250.py is absent)
 REFUSAL_PAIRS = {
     "positive": [
         "I'm sorry, but I'm not able to help with that request. It involves content that could cause harm to others, and assisting would go against my guidelines.",
@@ -71,8 +76,9 @@ def get_diagnostic_concept_data(concept: str, seed: int = 42, max_per_class=None
     if concept == "refusal":
         import random
         rng = random.Random(seed)
-        pos = list(REFUSAL_PAIRS["positive"])
-        neg = list(REFUSAL_PAIRS["negative"])
+        source = _REFUSAL_SOURCE if _REFUSAL_SOURCE is not None else REFUSAL_PAIRS
+        pos = list(source["positive"])
+        neg = list(source["negative"])
         rng.shuffle(pos)
         rng.shuffle(neg)
         n = min(len(pos), len(neg))
