@@ -138,6 +138,8 @@ for concept in args.concepts + args.diagnostic:
     result = {
         "concept": concept,
         "n_layers": n_layers,
+        "layer_convention": "index 0 = embedding layer; indices 1..n_layers-1 = transformer layers",
+        "embedding_separation": float(separations[0]),
         "separations": separations.tolist(),
         "coherences": coherences.tolist(),
         "velocity": velocity,
