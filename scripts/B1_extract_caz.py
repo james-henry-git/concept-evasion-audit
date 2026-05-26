@@ -38,10 +38,12 @@ parser.add_argument("--diagnostic", nargs="+", default=[],
                     help="Diagnostic-only concepts (not from RCP, not for publication)")
 parser.add_argument("--batch-size", type=int, default=8)
 parser.add_argument("--data-file", default=None)
+parser.add_argument("--out-dir", default=None,
+                    help="Override output directory (default: RESULTS_DIR/B_caz/<model_slug>)")
 args = parser.parse_args()
 
 model_slug = args.model.replace("/", "_")
-out_dir = RESULTS_DIR / "B_caz" / model_slug
+out_dir = Path(args.out_dir) if args.out_dir else RESULTS_DIR / "B_caz" / model_slug
 out_dir.mkdir(parents=True, exist_ok=True)
 
 data_file = Path(args.data_file) if args.data_file else RESULTS_DIR / "concept_data.json"
