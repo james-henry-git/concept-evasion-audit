@@ -381,6 +381,8 @@ if run_exp_b:
         save_path = model_save_root / f"gemma_gem_abliterated_{mode}"
         print(f"  Saving → {save_path}")
         model_donor.save_pretrained(save_path)
+        from transformers import AutoTokenizer as _AutoTok
+        _AutoTok.from_pretrained(args.donor_model, trust_remote_code=True).save_pretrained(save_path)
 
     del model_donor
     torch.cuda.empty_cache()
